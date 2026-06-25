@@ -109,6 +109,7 @@ direcciones (o pega la URL entera) cuando el CLI lo pida. El código nunca sale 
 | `finmcp institutions` | Lista las entidades disponibles (para fijar `ENABLEBANKING_ASPSP_NAME`) |
 | `finmcp sync` | Trae cuentas/saldos/movimientos a SQLite |
 | `finmcp accounts` | Lista las cuentas locales |
+| `finmcp import-csv` | Importa movimientos desde un CSV (histórico anterior a 90 días) |
 | `finmcp categorize` | Reaplica tus reglas de categorización |
 | `finmcp rules add/list` | Gestiona reglas de categorización |
 | `finmcp serve` | Arranca el servidor MCP (stdio; `--http` para remoto) |
@@ -170,6 +171,19 @@ finmcp categorize            # reaplica todas las reglas
 
 Las reglas se reaplican automáticamente al final de cada `finmcp sync`.
 `my_category` (manual/regla) tiene prioridad sobre cualquier categoría del proveedor.
+
+## Importar histórico antiguo (CSV)
+
+Las APIs PSD2 solo dan ~90 días de histórico. Para movimientos más antiguos,
+exporta tus movimientos desde la web de tu banco (CSV/Excel) e impórtalos:
+
+```bash
+finmcp import-csv movimientos.csv --iban ES58...
+```
+
+Detecta el delimitador, las cabeceras y el formato español de fecha/importe.
+**Deduplica** por (cuenta, día, importe, tipo), así que es seguro reimportar o
+solapar con lo que ya bajó la API. Las reglas de categorización se aplican solas.
 
 ## Sincronización programada (macOS / launchd)
 

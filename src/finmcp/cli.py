@@ -142,6 +142,67 @@ def rules_list() -> None:
             )
 
 
+@app.command("import-csv")
+def import_csv(
+    path: str = typer.Argument(..., help="Ruta al CSV/Excel-exportado de movimientos"),
+    iban: str = typer.Option(None, help="IBAN de la cuenta destino"),
+    account_id: str = typer.Option(None, help="ID de la cuenta destino"),
+    delimiter: str = typer.Option(None, help="Delimitador (autodetecta si se omite)"),
+) -> None:
+    """Importa movimientos desde un CSV (p.ej. export de CaixaBankNow).
+
+    Deduplica contra lo ya existente, así que es seguro reimportar o solapar
+    con lo que ya bajó la API. Útil para histórico anterior a los 90 días PSD2.
+    """
+    from pathlib import Path
+
+    from finmcp.analytics.categorization import apply_rules
+    from finmcp.db import models
+    from finmcp.db.session import SessionLocal, init_db
+    from finmcp.importers.csv_import import import_transactions, parse_rows
+
+    raw = Path(path).read_bytes()
+    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+        try:
+            text = raw.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+
+    rows = parse_rows(text, delimiter)
+    if not rows:
+        typer.echo("No se encontraron movimientos en el fichero.")
+        raise typer.Exit()
+
+    init_db()
+    with SessionLocal() as s:
+        if account_id:
+            acc = s.get(models.Account, account_id)
+        elif iban:
+            acc = (
+                s.query(models.Account)
+                .filter(models.Account.iban == iban)
+                .first()
+            )
+        else:
+            accs = s.query(models.Account).all()
+            acc = accs[0] if len(accs) == 1 else None
+
+        if acc is None:
+            raise typer.BadParameter(
+                "Indica la cuenta destino con --iban o --account-id "
+                "(hay varias cuentas). Lístalas con `finmcp accounts`."
+            )
+
+        added, skipped = import_transactions(s, acc, rows)
+        changed = apply_rules(s)
+
+    typer.echo(
+        f"Importadas {added} · saltadas (duplicadas) {skipped} · "
+        f"recategorizadas {changed}  →  cuenta {acc.iban or acc.id}"
+    )
+
+
 @app.command()
 def categorize(
     only_new: bool = typer.Option(
