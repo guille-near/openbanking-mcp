@@ -6,7 +6,7 @@ from finmcp.analytics.categorization import apply_rules
 from finmcp.db import repo
 from finmcp.db.models import SyncRun
 from finmcp.db.session import SessionLocal, init_db
-from finmcp.providers.truelayer.client import TrueLayerClient
+from finmcp.providers.factory import get_provider
 
 
 def run_sync(
@@ -14,7 +14,7 @@ def run_sync(
 ) -> SyncRun:
     """Pull idempotente de cuentas, saldos y movimientos a SQLite."""
     init_db()
-    client = TrueLayerClient()
+    client = get_provider()
     with SessionLocal() as session:
         # Persistimos el inicio antes de tocar el banco: así, si el pull falla,
         # la fila sobrevive al rollback y podemos marcarla como "error".

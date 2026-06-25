@@ -1,13 +1,14 @@
 # openbanking-mcp
 
-Servidor MCP de **finanzas personales de solo lectura** sobre la **TrueLayer Data API** (PSD2).
+Servidor MCP de **finanzas personales de solo lectura** sobre **Open Banking** (PSD2),
+con proveedor intercambiable: **GoCardless** (gratis, recomendado) o **TrueLayer**.
 Consulta cuentas, saldos y movimientos de tus bancos y genera analítica: gasto por
 categoría, suscripciones, cargos inusuales y resúmenes mensuales.
 
-> **Solo lectura.** No inicia pagos ni transferencias. Los scopes solicitados a TrueLayer
-> son exclusivamente de datos (`info accounts balance transactions ...`).
+> **Solo lectura.** No inicia pagos ni transferencias: solo se piden permisos de datos
+> (cuentas, saldos y movimientos).
 
-> **Funciona con cualquier banco que cubra TrueLayer** (cientos en UK y Europa). No está
+> **Funciona con casi toda la banca europea** (CaixaBank incluido). No está
 > atado a ningún banco concreto: el banco se elige con `TRUELAYER_PROVIDERS` en tu `.env`.
 
 ## Aviso
@@ -83,10 +84,51 @@ finmcp sync
 finmcp accounts
 ```
 
-## Bancos soportados
+## Proveedores
 
-TrueLayer es un agregador PSD2 que cubre **cientos de bancos de UK y Europa**. Eliges cuál(es)
-ofrecer en el diálogo de consentimiento mediante `TRUELAYER_PROVIDERS`:
+El proyecto habla con el banco a través de un proveedor Open Banking intercambiable
+(interfaz `BankDataProvider`). Eliges cuál con `FINMCP_PROVIDER`:
+
+| Proveedor | `FINMCP_PROVIDER` | Lectura de cuentas (AIS) | Coste |
+|---|---|---|---|
+| **GoCardless** Bank Account Data (antes Nordigen) | `gocardless` | **self-serve, inmediato** | gratis |
+| TrueLayer | `truelayer` | requiere aprobación comercial (ya no es self-serve) | de pago |
+
+> **Recomendado: GoCardless.** Cubre CaixaBank y casi toda la banca europea, te registras
+> y en minutos tienes credenciales, sin proceso de ventas. TrueLayer se ha volcado en pagos
+> y su Data API (lectura) ya no se concede self-serve a cuentas nuevas.
+
+### Opción A — GoCardless (gratis, recomendado)
+
+1. Regístrate en **[bankaccountdata.gocardless.com](https://bankaccountdata.gocardless.com)**
+   y crea unas credenciales en **Developers → User secrets** (`secret_id` + `secret_key`).
+2. En tu `.env`:
+   ```dotenv
+   FINMCP_PROVIDER=gocardless
+   GOCARDLESS_SECRET_ID=...
+   GOCARDLESS_SECRET_KEY=...
+   GOCARDLESS_COUNTRY=es
+   ```
+3. Encuentra el ID de tu banco y fíjalo:
+   ```bash
+   finmcp institutions --country es      # p.ej. CaixaBank -> CAIXABANK_CAIXESBBXXX
+   ```
+   ```dotenv
+   GOCARDLESS_INSTITUTION_ID=CAIXABANK_CAIXESBBXXX
+   ```
+4. Autoriza y sincroniza:
+   ```bash
+   finmcp auth       # abre tu banco para el SCA; al volver guarda las cuentas vinculadas
+   finmcp sync
+   finmcp accounts
+   ```
+
+> El consentimiento de GoCardless dura ~90 días (límite PSD2); pasado ese plazo, repite
+> `finmcp auth`. Hay límites de peticiones por cuenta/día, de sobra para un `sync` periódico.
+
+### Opción B — TrueLayer
+
+TrueLayer cubre cientos de bancos de UK y Europa vía `TRUELAYER_PROVIDERS`:
 
 | Caso | Valor de ejemplo |
 |---|---|
@@ -101,7 +143,8 @@ ofrecer en el diálogo de consentimiento mediante `TRUELAYER_PROVIDERS`:
 
 | Comando | Estado | Descripción |
 |---|---|---|
-| `finmcp auth` | ✅ | Flujo OAuth, guarda tokens cifrados |
+| `finmcp auth` | ✅ | Autoriza con el proveedor activo, guarda credenciales cifradas |
+| `finmcp institutions` | ✅ | Lista entidades de GoCardless (para `GOCARDLESS_INSTITUTION_ID`) |
 | `finmcp sync` | ✅ | Trae cuentas/saldos/movimientos a SQLite |
 | `finmcp accounts` | ✅ | Lista cuentas locales |
 | `finmcp serve` | ✅ | Arranca el servidor MCP (stdio) |

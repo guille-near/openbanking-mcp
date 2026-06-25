@@ -15,7 +15,7 @@ def test_run_sync_marks_error_on_failure(monkeypatch, Session):
         def get_accounts(self):
             raise RuntimeError("HTTP 401 token caducado")
 
-    monkeypatch.setattr(service, "TrueLayerClient", lambda: BoomClient())
+    monkeypatch.setattr(service, "get_provider", lambda: BoomClient())
 
     with pytest.raises(RuntimeError):
         service.run_sync()
@@ -53,7 +53,7 @@ def test_run_sync_ok_path(monkeypatch, Session):
                 )
             ]
 
-    monkeypatch.setattr(service, "TrueLayerClient", lambda: FakeClient())
+    monkeypatch.setattr(service, "get_provider", lambda: FakeClient())
 
     run = service.run_sync()
     assert run.status == "ok"

@@ -11,10 +11,36 @@ app.add_typer(rules_app, name="rules")
 
 @app.command()
 def auth() -> None:
-    """Autoriza con TrueLayer (flujo OAuth) y guarda los tokens cifrados."""
-    from finmcp.providers.truelayer.auth import run_authorization_flow
+    """Autoriza con el proveedor activo y guarda las credenciales cifradas."""
+    from finmcp.config import settings
 
-    run_authorization_flow()
+    if settings.provider.lower() == "gocardless":
+        from finmcp.providers.gocardless.auth import run_link_flow
+
+        run_link_flow()
+    else:
+        from finmcp.providers.truelayer.auth import run_authorization_flow
+
+        run_authorization_flow()
+
+
+@app.command()
+def institutions(
+    country: str = typer.Option(
+        None, help="Código país ISO-3166 (p.ej. es). Por defecto, GOCARDLESS_COUNTRY."
+    ),
+) -> None:
+    """Lista las entidades de GoCardless (para fijar GOCARDLESS_INSTITUTION_ID)."""
+    from finmcp.config import settings
+    from finmcp.providers.gocardless.auth import list_institutions
+
+    code = country or settings.gocardless_country
+    rows = list_institutions(code)
+    if not rows:
+        typer.echo(f"Sin entidades para el país '{code}'.")
+        raise typer.Exit()
+    for inst in rows:
+        typer.echo(f"{inst['id']}  ·  {inst.get('name', '')}")
 
 
 @app.command()
