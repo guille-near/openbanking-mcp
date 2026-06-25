@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from finmcp.analytics.categorization import apply_rules
 from finmcp.db import repo
 from finmcp.db.models import SyncRun
 from finmcp.db.session import SessionLocal, init_db
@@ -39,5 +40,7 @@ def run_sync(
         run.finished_at = datetime.now(timezone.utc)
         run.status = "ok"
         session.commit()
+        # Recategoriza según las reglas del usuario tras incorporar lo nuevo.
+        apply_rules(session)
         session.refresh(run)
         return run

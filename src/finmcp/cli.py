@@ -5,6 +5,8 @@ import typer
 app = typer.Typer(
     help="Finanzas personales sobre TrueLayer (solo lectura)."
 )
+rules_app = typer.Typer(help="Reglas de categorización personalizadas.")
+app.add_typer(rules_app, name="rules")
 
 
 @app.command()
@@ -45,6 +47,70 @@ def accounts() -> None:
             typer.echo(
                 f"- {a.name} ({a.type}) · {a.currency} · {a.iban or 's/IBAN'}"
             )
+
+
+@rules_app.command("add")
+def rules_add(
+    pattern: str = typer.Argument(..., help="Subcadena a buscar (case-insensitive)"),
+    category: str = typer.Argument(..., help="Categoría a asignar"),
+    field: str = typer.Option("any", help="merchant | description | any"),
+    priority: int = typer.Option(100, help="Menor = se evalúa antes"),
+) -> None:
+    """Añade una regla y la aplica a los movimientos existentes."""
+    from finmcp.analytics.categorization import apply_rules
+    from finmcp.db.models import CategoryRule
+    from finmcp.db.session import SessionLocal, init_db
+
+    init_db()
+    with SessionLocal() as s:
+        s.add(
+            CategoryRule(
+                pattern=pattern, category=category, field=field, priority=priority
+            )
+        )
+        s.commit()
+        changed = apply_rules(s)
+    typer.echo(
+        f"Regla añadida: '{pattern}' -> {category} · recategorizadas {changed} tx"
+    )
+
+
+@rules_app.command("list")
+def rules_list() -> None:
+    """Lista las reglas de categorización."""
+    from finmcp.db.models import CategoryRule
+    from finmcp.db.session import SessionLocal, init_db
+
+    init_db()
+    with SessionLocal() as s:
+        rows = (
+            s.query(CategoryRule)
+            .order_by(CategoryRule.priority.asc(), CategoryRule.id.asc())
+            .all()
+        )
+        if not rows:
+            typer.echo("Sin reglas. Añade una con `finmcp rules add`.")
+            raise typer.Exit()
+        for r in rows:
+            typer.echo(
+                f"[{r.priority}] '{r.pattern}' ({r.field}) -> {r.category}  (id={r.id})"
+            )
+
+
+@app.command()
+def categorize(
+    only_new: bool = typer.Option(
+        False, "--only-new", help="Solo las que aún no tienen categoría manual"
+    ),
+) -> None:
+    """Reaplica las reglas de categorización a los movimientos."""
+    from finmcp.analytics.categorization import apply_rules
+    from finmcp.db.session import SessionLocal, init_db
+
+    init_db()
+    with SessionLocal() as s:
+        changed = apply_rules(s, only_uncategorized=only_new)
+    typer.echo(f"Recategorizadas {changed} transacciones.")
 
 
 @app.command()

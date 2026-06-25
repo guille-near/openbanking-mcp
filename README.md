@@ -80,6 +80,29 @@ En `claude_desktop_config.json`:
 El servidor lee de SQLite; recuerda correr `finmcp sync` (manual o por cron) para
 mantener los datos al día.
 
+## Categorías personalizadas
+
+```bash
+finmcp rules add "mercadona" "Supermercado"
+finmcp rules add "netflix" "Entretenimiento" --field merchant
+finmcp rules list
+finmcp categorize            # reaplica todas las reglas
+```
+
+Las reglas se reaplican automáticamente al final de cada `finmcp sync`.
+`my_category` (manual/regla) tiene prioridad sobre la categoría del proveedor.
+
+## Sincronización programada (macOS / launchd)
+
+```bash
+# Copia el LaunchAgent y actívalo (sync cada 6 h)
+cp deploy/com.flowtheapp.caixa-mcp.sync.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.flowtheapp.caixa-mcp.sync.plist
+
+# Logs en data/sync.log · para parar:
+launchctl unload ~/Library/LaunchAgents/com.flowtheapp.caixa-mcp.sync.plist
+```
+
 ## Notas PSD2
 
 - El `access_token` dura ~1 h; se refresca solo con el `refresh_token`.

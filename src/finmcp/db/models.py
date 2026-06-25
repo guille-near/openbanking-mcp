@@ -60,6 +60,16 @@ class Transaction(Base):
     account: Mapped["Account"] = relationship(back_populates="transactions")
 
 
+class CategoryRule(Base):
+    __tablename__ = "category_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    pattern: Mapped[str] = mapped_column(String)  # subcadena, case-insensitive
+    category: Mapped[str] = mapped_column(String)
+    field: Mapped[str] = mapped_column(String, default="any")  # merchant|description|any
+    priority: Mapped[int] = mapped_column(Integer, default=100)  # menor = antes
+
+
 class SyncRun(Base):
     __tablename__ = "sync_runs"
 

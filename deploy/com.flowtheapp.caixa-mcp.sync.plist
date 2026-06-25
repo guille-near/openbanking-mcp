@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.flowtheapp.caixa-mcp.sync</string>
+
+    <!-- Ejecuta `finmcp sync` desde el venv del proyecto -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/iyorica/caixa-mcp/.venv/bin/finmcp</string>
+        <string>sync</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/iyorica/caixa-mcp</string>
+
+    <!-- Cada 6 horas (21600 s). El refresh_token mantiene viva la sesión PSD2. -->
+    <key>StartInterval</key>
+    <integer>21600</integer>
+
+    <!-- Lanza una sincronización también al cargar el agente -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/iyorica/caixa-mcp/data/sync.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/iyorica/caixa-mcp/data/sync.err.log</string>
+</dict>
+</plist>
