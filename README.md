@@ -80,6 +80,30 @@ En `claude_desktop_config.json`:
 El servidor lee de SQLite; recuerda correr `finmcp sync` (manual o por cron) para
 mantener los datos al día.
 
+## Conectar a ChatGPT
+
+ChatGPT **no lanza procesos locales**: solo se conecta a servidores MCP **remotos
+por HTTP(S)**. Hace falta exponer el servidor por una URL pública y añadirlo como
+*connector* en **Modo Desarrollador** (Settings → Connectors, requiere plan de pago).
+
+> ⚠️ **Datos bancarios por una URL pública.** Usa SIEMPRE bearer token y un túnel
+> con HTTPS. Para uso solo-local, Claude Desktop (stdio) es más seguro.
+
+```bash
+# 1. Arranca en HTTP con token
+export FINMCP_HTTP_TOKEN="<token-largo-aleatorio>"
+finmcp serve --http --port 8000        # expone POST /mcp
+
+# 2. Túnel HTTPS público (ejemplo con ngrok)
+ngrok http 8000                         # -> https://xxxx.ngrok.app
+```
+
+En ChatGPT → Connectors → *Add custom connector*:
+- **URL**: `https://xxxx.ngrok.app/mcp`
+- **Auth**: cabecera `Authorization: Bearer <FINMCP_HTTP_TOKEN>`
+
+El servidor responde `401` a cualquier petición sin el token correcto.
+
 ## Categorías personalizadas
 
 ```bash

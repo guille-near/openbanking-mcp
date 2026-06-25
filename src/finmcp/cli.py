@@ -114,11 +114,21 @@ def categorize(
 
 
 @app.command()
-def serve() -> None:
-    """Arranca el servidor MCP (solo lectura) sobre stdio."""
+def serve(
+    http: bool = typer.Option(
+        False, "--http", help="Transporte HTTP (para ChatGPT); por defecto stdio"
+    ),
+    host: str = typer.Option("127.0.0.1", help="Host en modo --http"),
+    port: int = typer.Option(8000, help="Puerto en modo --http"),
+) -> None:
+    """Arranca el servidor MCP (solo lectura).
+
+    stdio para Claude Desktop/Cursor; --http para conectores remotos (ChatGPT).
+    En --http, define FINMCP_HTTP_TOKEN para exigir bearer auth.
+    """
     from finmcp.mcp.server import main
 
-    main()
+    main(http=http, host=host, port=port)
 
 
 if __name__ == "__main__":

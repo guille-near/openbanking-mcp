@@ -140,9 +140,48 @@ def sync_status() -> dict:
         }
 
 
-def main() -> None:
+def _wrap_bearer_auth(app, token: str):
+    """Middleware mínimo: exige `Authorization: Bearer <token>` en cada petición."""
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    class BearerAuth(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            if request.headers.get("authorization", "") != f"Bearer {token}":
+                return JSONResponse({"error": "unauthorized"}, status_code=401)
+            return await call_next(request)
+
+    app.add_middleware(BearerAuth)
+    return app
+
+
+def main(http: bool = False, host: str = "127.0.0.1", port: int = 8000) -> None:
+    """Arranca el servidor MCP.
+
+    - stdio (por defecto): para Claude Desktop / Cursor (proceso local).
+    - http: transporte Streamable HTTP en /mcp para conectores remotos (ChatGPT).
+      Si FINMCP_HTTP_TOKEN está definido, exige ese bearer token.
+    """
+    import os
+
     init_db()
-    mcp.run()
+    if not http:
+        mcp.run()
+        return
+
+    import uvicorn
+
+    app = mcp.streamable_http_app()
+    token = os.environ.get("FINMCP_HTTP_TOKEN", "")
+    if token:
+        app = _wrap_bearer_auth(app, token)
+    else:
+        print(
+            "AVISO: sin FINMCP_HTTP_TOKEN; el endpoint queda SIN autenticación. "
+            "No lo expongas públicamente con datos bancarios."
+        )
+    mcp.settings.host, mcp.settings.port = host, port
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
