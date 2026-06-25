@@ -46,7 +46,8 @@ class Settings(BaseSettings):
     enablebanking_key_path: Path | None = None  # ruta al .pem de la clave privada
     enablebanking_aspsp_name: str = ""  # nombre exacto del banco, p.ej. CaixaBank
     enablebanking_country: str = "ES"
-    enablebanking_redirect_uri: str = "http://localhost:3000/callback"
+    # Enable Banking exige HTTPS; usamos copy-paste del code (no se captura por servidor).
+    enablebanking_redirect_uri: str = "https://localhost:3000/callback"
 
     # --- Almacenamiento ---
     finmcp_db_path: Path | None = None

@@ -103,7 +103,8 @@ El proyecto habla con el banco a través de un proveedor Open Banking intercambi
 
 1. Regístrate en **[enablebanking.com](https://enablebanking.com)** (Control Panel) y crea
    una aplicación: deja **"Generate in the browser… export private key"**, pon como redirect
-   `http://localhost:3000/callback`, y **descarga la clave privada** (solo se muestra una vez).
+   `https://localhost:3000/callback` (Enable Banking exige **HTTPS**), y **descarga la clave
+   privada** (solo se muestra una vez).
 2. Guarda la clave privada en `data/enablebanking_private.pem` (o donde quieras y apunta
    `ENABLEBANKING_KEY_PATH`) y copia el **Application ID**. En tu `.env`:
    ```dotenv
@@ -121,10 +122,13 @@ El proyecto habla con el banco a través de un proveedor Open Banking intercambi
    ```
 4. Autoriza y sincroniza:
    ```bash
-   finmcp auth       # abre tu banco para el SCA; al volver guarda las cuentas vinculadas
+   finmcp auth       # abre tu banco para el SCA
    finmcp sync
    finmcp accounts
    ```
+   En `auth`, tras el SCA el navegador irá a `https://localhost:3000/callback` y mostrará
+   un error de conexión (es normal): **copia el `code` de la barra de direcciones** y pégalo
+   cuando el CLI lo pida. El código nunca sale de tu máquina.
 
 > El consentimiento dura ~90 días (límite PSD2); pasado ese plazo, repite `finmcp auth`.
 > La clave privada vive solo en tu máquina (en `data/`, que está en `.gitignore`).

@@ -5,7 +5,6 @@ import time
 import urllib.parse
 import webbrowser
 from datetime import datetime, timedelta, timezone
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import httpx
 import jwt
@@ -61,43 +60,18 @@ def list_aspsps(country: str, psu_type: str = "personal") -> list[dict]:
 
 
 # --- Flujo de consentimiento (auth + SCA + session) --------------------------
+# Enable Banking exige redirect HTTPS, así que no levantamos un servidor local:
+# el usuario pega el `code` que aparece en la URL tras el SCA. Más privado, además,
+# porque el código nunca sale de la máquina.
 
-class _CodeHandler(BaseHTTPRequestHandler):
-    code: str | None = None
-    state: str | None = None
-
-    def do_GET(self):  # noqa: N802
-        parsed = urllib.parse.urlparse(self.path)
-        if parsed.path != "/callback":
-            self.send_response(404)
-            self.end_headers()
-            return
-        qs = urllib.parse.parse_qs(parsed.query)
-        _CodeHandler.code = qs.get("code", [None])[0]
-        _CodeHandler.state = qs.get("state", [None])[0]
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(
-            "<h2>Consentimiento recibido. Ya puedes cerrar esta pestana.</h2>".encode(
-                "utf-8"
-            )
-        )
-
-    def log_message(self, *args):  # silenciar logs del servidor
-        pass
-
-
-def _wait_for_code(port: int, expected_state: str) -> str:
-    _CodeHandler.code = None
-    _CodeHandler.state = None
-    server = HTTPServer(("localhost", port), _CodeHandler)
-    while _CodeHandler.code is None:
-        server.handle_request()
-    server.server_close()
-    if _CodeHandler.state != expected_state:
-        raise RuntimeError("State mismatch: posible CSRF, abortando.")
-    return _CodeHandler.code
+def _extract_code(raw: str) -> str:
+    """Acepta el `code` pelado o la URL completa de redirección y devuelve el code."""
+    if "code=" in raw:
+        query = urllib.parse.urlparse(raw).query or raw.split("?", 1)[-1]
+        params = urllib.parse.parse_qs(query)
+        if params.get("code"):
+            return params["code"][0]
+    return raw
 
 
 def start_auth(aspsp_name: str, country: str, state: str) -> dict:
@@ -141,10 +115,15 @@ def run_link_flow() -> dict:
         )
     state = secrets.token_urlsafe(16)
     auth_resp = start_auth(name, settings.enablebanking_country, state)
-    print("Abriendo el navegador para autorizar con tu banco (vía Enable Banking)...")
-    print(f"Si no se abre, visita:\n{auth_resp['url']}\n")
+    print("Abre esta URL y autoriza con tu banco (SCA):\n")
+    print(f"  {auth_resp['url']}\n")
     webbrowser.open(auth_resp["url"])
-    code = _wait_for_code(settings.finmcp_callback_port, state)
+    print(
+        "Tras autorizar, el navegador irá a "
+        f"{settings.enablebanking_redirect_uri} y mostrará un error de conexión: es normal.\n"
+        "Copia de la barra de direcciones el valor de 'code' (o pega la URL entera) y pégalo aquí.\n"
+    )
+    code = _extract_code(input("code: ").strip())
 
     session = create_session(code)
     save_secret(
