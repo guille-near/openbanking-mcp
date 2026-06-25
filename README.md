@@ -1,31 +1,32 @@
 # openbanking-mcp
 
 Servidor MCP de **finanzas personales de solo lectura** sobre **Open Banking** (PSD2),
-con proveedor intercambiable: **Enable Banking** (gratis, recomendado), GoCardless o TrueLayer.
-Consulta cuentas, saldos y movimientos de tus bancos y genera analítica: gasto por
-categoría, suscripciones, cargos inusuales y resúmenes mensuales.
+vía **[Enable Banking](https://enablebanking.com)**. Consulta cuentas, saldos y
+movimientos de tu banco y genera analítica: gasto por categoría, suscripciones,
+cargos inusuales y resúmenes mensuales — desde Claude Desktop, Cursor o ChatGPT.
 
 > **Solo lectura.** No inicia pagos ni transferencias: solo se piden permisos de datos
 > (cuentas, saldos y movimientos).
 
-> **Funciona con casi toda la banca europea** (CaixaBank incluido). No está
-> atado a ningún banco concreto: el banco se elige con `TRUELAYER_PROVIDERS` en tu `.env`.
+> **Funciona con casi toda la banca europea** (CaixaBank incluido). El banco se elige
+> con `ENABLEBANKING_ASPSP_NAME` en tu `.env`.
 
 ## Aviso
 
-Proyecto independiente, **no afiliado ni respaldado por TrueLayer ni por ningún banco**.
+Proyecto independiente, **no afiliado ni respaldado por Enable Banking ni por ningún banco**.
 Manejas **tus propios datos bancarios** bajo tu responsabilidad: cada quien autohospeda
-con sus credenciales, los datos nunca salen de tu máquina. Software entregado "tal cual",
-sin garantías (ver [LICENSE](LICENSE)). Lee también las [notas PSD2](#notas-psd2).
+con sus credenciales y los datos **nunca salen de tu máquina** (SQLite local; tokens y
+clave privada cifrados/protegidos en `data/`, que está en `.gitignore`). Software
+entregado "tal cual", sin garantías (ver [LICENSE](LICENSE)). Lee las [notas PSD2](#notas-psd2).
 
 ## Arquitectura
 
 ```txt
 Tu banco (PSD2)
-   -> Proveedor Open Banking (TrueLayer)  [interfaz BankDataProvider]
-   -> Capa de sincronización (pull idempotente e incremental)
+   -> Enable Banking (AIS)          [interfaz BankDataProvider]
+   -> Capa de sincronización        (pull idempotente e incremental)
    -> SQLite (SQLAlchemy)
-   -> Capa de analítica (funciones puras)
+   -> Capa de analítica             (funciones puras)
    -> Servidor MCP (solo lectura)
    -> Cliente MCP: Claude Desktop / Cursor / ChatGPT
 ```
@@ -33,128 +34,84 @@ Tu banco (PSD2)
 El servidor MCP **lee de SQLite, nunca llama al banco en caliente**. La sincronización
 es un proceso aparte (`finmcp sync`, manual o por cron).
 
-## Crea tu app de TrueLayer (2 minutos, gratis)
+> ¿Por qué Enable Banking? Es el agregador AIS **self-serve y gratis para uso personal**
+> que cubre la banca europea. (GoCardless/Nordigen cerró nuevos registros y la Data API de
+> TrueLayer ya no se concede self-serve.) El código mantiene una interfaz `BankDataProvider`,
+> así que añadir otro proveedor es sencillo.
 
-Cada usuario usa **sus propias credenciales** de TrueLayer (así nadie depende de un
-servidor central ni comparte secretos). Conseguirlas en sandbox es gratis y rápido:
+## Paso a paso
 
-1. Entra en **[console.truelayer.com](https://console.truelayer.com)** y crea una cuenta.
-2. Crea una aplicación (botón *Create application* / *New app*). Empiezas en **Sandbox**.
-3. En la app, abre **Settings / Keys** y copia:
-   - **Client ID** → a `TRUELAYER_CLIENT_ID` en tu `.env`.
-   - **Client secret** → a `TRUELAYER_CLIENT_SECRET` en tu `.env`.
-4. En **Redirect URIs**, añade exactamente:
-   ```
-   http://localhost:3000/callback
-   ```
-   (debe coincidir con `TRUELAYER_REDIRECT_URI` / `FINMCP_CALLBACK_PORT` del `.env`).
-5. Deja `TRUELAYER_ENV=sandbox` y `TRUELAYER_PROVIDERS=uk-cs-mock` para probar contra el
-   **Mock Bank** (datos ficticios, sin tocar dinero real).
-
-> 🔒 **No compartas tu `Client secret` ni lo subas al repo** (ya está en `.gitignore` vía
-> `.env`). Identifica a *tu* aplicación ante TrueLayer y todo el uso recae sobre tu cuenta.
-
-> **¿Datos de tu banco real?** Necesitas que TrueLayer apruebe tu app para **`live`**
-> (`TRUELAYER_ENV=live`) y elegir el provider de tu banco (ver [Bancos soportados](#bancos-soportados)).
-> No es inmediato; para probar el proyecto, sandbox basta.
-
-## Puesta en marcha
+### 1. Instala el proyecto
 
 ```bash
-# 1. Clona y entra
-git clone <tu-fork-o-este-repo> openbanking-mcp && cd openbanking-mcp
-
-# 2. Entorno
+git clone https://github.com/guille-near/openbanking-mcp.git && cd openbanking-mcp
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-
-# 3. Configura credenciales (sandbox)
-cp .env.example .env
-#   -> rellena TRUELAYER_CLIENT_ID y TRUELAYER_CLIENT_SECRET desde console.truelayer.com
-#   -> registra la redirect URI http://localhost:3000/callback en tu app
-#   -> elige tu banco en TRUELAYER_PROVIDERS (ver .env.example)
-
-# 4. Autoriza (abre el navegador, Mock Bank en sandbox)
-finmcp auth
-
-# 5. Sincroniza datos a SQLite
-finmcp sync
-
-# 6. Revisa
-finmcp accounts
 ```
 
-## Proveedores
+### 2. Registra tu app en Enable Banking
 
-El proyecto habla con el banco a través de un proveedor Open Banking intercambiable
-(interfaz `BankDataProvider`). Eliges cuál con `FINMCP_PROVIDER`:
+1. Entra en **[enablebanking.com](https://enablebanking.com) → Control Panel** y regístrate.
+2. Crea una **aplicación**:
+   - Generación de clave: **"Generate in the browser… export private key"**.
+   - **Allowed redirect URLs**: `https://localhost:3000/callback` (exige **HTTPS**).
+   - Rellena nombre, email y (si los pide) URLs de privacidad/términos.
+3. Al registrar, **descarga la clave privada** (`.pem`) — **solo se muestra una vez** — y
+   **copia el Application ID** (es el nombre del fichero `.pem`).
+4. **Restricted Production**: en la app, pulsa **Link accounts** y vincula (lista blanca)
+   las cuentas de tu banco que quieras leer. En modo *Restricted* solo se pueden acceder
+   esas cuentas (no requiere due diligence; perfecto para uso personal).
 
-| Proveedor | `FINMCP_PROVIDER` | Lectura de cuentas (AIS) | Coste |
-|---|---|---|---|
-| **Enable Banking** | `enablebanking` | **self-serve, inmediato** | gratis (uso personal) |
-| GoCardless Bank Account Data (antes Nordigen) | `gocardless` | nuevos registros **cerrados** | — |
-| TrueLayer | `truelayer` | requiere aprobación comercial (ya no es self-serve) | de pago |
+### 3. Configura el `.env`
 
-> **Recomendado: Enable Banking.** Cubre CaixaBank y casi toda la banca europea, registro
-> self-serve y gratis para uso personal. GoCardless/Nordigen cerró nuevos registros y
-> TrueLayer ya no concede su Data API (lectura) self-serve.
+```bash
+cp .env.example .env
+```
 
-### Opción A — Enable Banking (gratis, recomendado)
+Guarda la clave privada en `data/enablebanking_private.pem` y edita el `.env`:
 
-1. Regístrate en **[enablebanking.com](https://enablebanking.com)** (Control Panel) y crea
-   una aplicación: deja **"Generate in the browser… export private key"**, pon como redirect
-   `https://localhost:3000/callback` (Enable Banking exige **HTTPS**), y **descarga la clave
-   privada** (solo se muestra una vez).
-2. Guarda la clave privada en `data/enablebanking_private.pem` (o donde quieras y apunta
-   `ENABLEBANKING_KEY_PATH`) y copia el **Application ID**. En tu `.env`:
-   ```dotenv
-   FINMCP_PROVIDER=enablebanking
-   ENABLEBANKING_APP_ID=<tu Application ID>
-   ENABLEBANKING_COUNTRY=ES
-   # ENABLEBANKING_KEY_PATH=/ruta/a/enablebanking_private.pem   # si no usas data/
-   ```
-3. Encuentra el nombre exacto de tu banco y fíjalo:
-   ```bash
-   finmcp institutions                   # lista las entidades (p.ej. CaixaBank)
-   ```
-   ```dotenv
-   ENABLEBANKING_ASPSP_NAME=CaixaBank
-   ```
-4. Autoriza y sincroniza:
-   ```bash
-   finmcp auth       # abre tu banco para el SCA
-   finmcp sync
-   finmcp accounts
-   ```
-   En `auth`, tras el SCA el navegador irá a `https://localhost:3000/callback` y mostrará
-   un error de conexión (es normal): **copia el `code` de la barra de direcciones** y pégalo
-   cuando el CLI lo pida. El código nunca sale de tu máquina.
+```dotenv
+FINMCP_PROVIDER=enablebanking
+ENABLEBANKING_APP_ID=<tu Application ID>
+ENABLEBANKING_COUNTRY=ES
+# ENABLEBANKING_KEY_PATH=/ruta/a/clave.pem   # solo si NO usas data/enablebanking_private.pem
+```
 
-> El consentimiento dura ~90 días (límite PSD2); pasado ese plazo, repite `finmcp auth`.
-> La clave privada vive solo en tu máquina (en `data/`, que está en `.gitignore`).
+### 4. Elige tu banco
 
-### Opción B — TrueLayer
+```bash
+finmcp institutions            # lista las entidades (p.ej. "CaixaBank · ES")
+```
+Fija el nombre **exacto** en el `.env`:
+```dotenv
+ENABLEBANKING_ASPSP_NAME=CaixaBank
+```
 
-TrueLayer cubre cientos de bancos de UK y Europa vía `TRUELAYER_PROVIDERS`:
+### 5. Autoriza y sincroniza
 
-| Caso | Valor de ejemplo |
-|---|---|
-| Sandbox (datos mock) | `uk-cs-mock` |
-| Todos los bancos de un país (live) | `es-ob-all` · `uk-ob-all` · `fr-ob-all` … |
-| Un banco concreto (live) | `es-ob-bbva` · `es-ob-santander` · `es-ob-caixabank` … |
+```bash
+finmcp auth        # abre tu banco para el SCA
+finmcp sync        # baja cuentas/saldos/movimientos a SQLite
+finmcp accounts    # comprobación
+```
 
-> Los IDs exactos están en **console.truelayer.com → Data API → Providers**. El modo `live`
-> requiere acceso aprobado por TrueLayer (no es inmediato); en `sandbox` solo existe el Mock Bank.
+En `finmcp auth`, tras el SCA el navegador irá a `https://localhost:3000/callback` y
+mostrará un **error de conexión: es normal**. Copia el valor de `code` de la barra de
+direcciones (o pega la URL entera) cuando el CLI lo pida. El código nunca sale de tu máquina.
+
+> El consentimiento dura **~90 días** (límite PSD2); pasado ese plazo, repite `finmcp auth`.
 
 ## Comandos
 
-| Comando | Estado | Descripción |
-|---|---|---|
-| `finmcp auth` | ✅ | Autoriza con el proveedor activo, guarda credenciales cifradas |
-| `finmcp institutions` | ✅ | Lista entidades del proveedor activo (para fijar el banco) |
-| `finmcp sync` | ✅ | Trae cuentas/saldos/movimientos a SQLite |
-| `finmcp accounts` | ✅ | Lista cuentas locales |
-| `finmcp serve` | ✅ | Arranca el servidor MCP (stdio) |
+| Comando | Descripción |
+|---|---|
+| `finmcp auth` | Autoriza con tu banco y guarda la sesión cifrada |
+| `finmcp institutions` | Lista las entidades disponibles (para fijar `ENABLEBANKING_ASPSP_NAME`) |
+| `finmcp sync` | Trae cuentas/saldos/movimientos a SQLite |
+| `finmcp accounts` | Lista las cuentas locales |
+| `finmcp categorize` | Reaplica tus reglas de categorización |
+| `finmcp rules add/list` | Gestiona reglas de categorización |
+| `finmcp serve` | Arranca el servidor MCP (stdio; `--http` para remoto) |
 
 ## Herramientas MCP (solo lectura)
 
@@ -185,39 +142,34 @@ mantener los datos al día.
 
 ## Conectar a ChatGPT
 
-ChatGPT **no lanza procesos locales**: solo se conecta a servidores MCP **remotos
-por HTTP(S)**. Hace falta exponer el servidor por una URL pública y añadirlo como
-*connector* en **Modo Desarrollador** (Settings → Connectors, requiere plan de pago).
+ChatGPT solo se conecta a servidores MCP **remotos por HTTP(S)**. Hay que exponer el
+servidor por una URL pública y añadirlo como *connector* en Modo Desarrollador.
 
-> ⚠️ **Datos bancarios por una URL pública.** Usa SIEMPRE bearer token y un túnel
-> con HTTPS. Para uso solo-local, Claude Desktop (stdio) es más seguro.
+> ⚠️ **Datos bancarios por una URL pública.** Usa SIEMPRE bearer token y HTTPS.
+> Para uso solo-local, Claude Desktop (stdio) es más seguro.
 
 ```bash
-# 1. Arranca en HTTP con token
 export FINMCP_HTTP_TOKEN="<token-largo-aleatorio>"
-finmcp serve --http --port 8000        # expone POST /mcp
-
-# 2. Túnel HTTPS público (ejemplo con ngrok)
-ngrok http 8000                         # -> https://xxxx.ngrok.app
+finmcp serve --http --port 8000        # expone POST /mcp (401 sin el token)
+ngrok http 8000                         # túnel HTTPS -> https://xxxx.ngrok.app
 ```
 
-En ChatGPT → Connectors → *Add custom connector*:
-- **URL**: `https://xxxx.ngrok.app/mcp`
-- **Auth**: cabecera `Authorization: Bearer <FINMCP_HTTP_TOKEN>`
-
-El servidor responde `401` a cualquier petición sin el token correcto.
+En ChatGPT → Connectors → *Add custom connector*: URL `https://xxxx.ngrok.app/mcp`,
+cabecera `Authorization: Bearer <FINMCP_HTTP_TOKEN>`.
 
 ## Categorías personalizadas
 
+Enable Banking no envía categoría en los movimientos, así que las defines tú con reglas:
+
 ```bash
 finmcp rules add "mercadona" "Supermercado"
-finmcp rules add "netflix" "Entretenimiento" --field merchant
+finmcp rules add "vodafone" "Telefonía" --field merchant
 finmcp rules list
 finmcp categorize            # reaplica todas las reglas
 ```
 
 Las reglas se reaplican automáticamente al final de cada `finmcp sync`.
-`my_category` (manual/regla) tiene prioridad sobre la categoría del proveedor.
+`my_category` (manual/regla) tiene prioridad sobre cualquier categoría del proveedor.
 
 ## Sincronización programada (macOS / launchd)
 
@@ -235,16 +187,16 @@ launchctl unload ~/Library/LaunchAgents/com.openbanking-mcp.sync.plist
 
 ## Notas PSD2
 
-- El `access_token` dura ~1 h; se refresca solo con el `refresh_token`.
-- PSD2 obliga a **re-consentir con SCA cada 90 días**: pasado ese plazo hay que repetir `finmcp auth`.
-- El acceso `live` a bancos reales requiere una app de TrueLayer aprobada para producción.
-  En `sandbox` se usa el Mock Bank de TrueLayer.
+- El consentimiento PSD2 caduca: hay que **re-autorizar con SCA cada ~90 días** (`finmcp auth`).
+- En **Restricted Production** solo se leen las cuentas que hayas vinculado (lista blanca)
+  en el panel de Enable Banking.
+- El histórico disponible suele limitarse a ~90 días por las APIs PSD2 de los bancos.
 
 ## Desarrollo
 
 ```bash
 pip install -e ".[dev]"
-pytest                       # suite de tests (analítica, mapper, sync)
+pytest                       # suite de tests (analítica, mapper, sync, config)
 ```
 
 La analítica son **funciones puras** testeadas contra una SQLite en memoria; el flujo de
