@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     )
 
     # --- Proveedor Open Banking activo ---
-    provider: str = Field("truelayer", description='"truelayer" | "gocardless"')
+    provider: str = Field(
+        "truelayer", description='"truelayer" | "gocardless" | "enablebanking"'
+    )
 
     # --- TrueLayer ---
     truelayer_env: str = Field("sandbox", description='"sandbox" | "live"')
@@ -38,6 +40,13 @@ class Settings(BaseSettings):
     gocardless_institution_id: str = ""  # p.ej. CAIXABANK_CAIXESBBXXX
     gocardless_country: str = "es"
     gocardless_redirect_uri: str = "http://localhost:3000/callback"
+
+    # --- Enable Banking ---
+    enablebanking_app_id: str = ""  # Application ID (kid del JWT)
+    enablebanking_key_path: Path | None = None  # ruta al .pem de la clave privada
+    enablebanking_aspsp_name: str = ""  # nombre exacto del banco, p.ej. CaixaBank
+    enablebanking_country: str = "ES"
+    enablebanking_redirect_uri: str = "http://localhost:3000/callback"
 
     # --- Almacenamiento ---
     finmcp_db_path: Path | None = None
@@ -87,6 +96,16 @@ class Settings(BaseSettings):
     @property
     def gocardless_base(self) -> str:
         return "https://bankaccountdata.gocardless.com/api/v2"
+
+    @property
+    def enablebanking_base(self) -> str:
+        return "https://api.enablebanking.com"
+
+    @property
+    def enablebanking_private_key(self) -> Path:
+        return self.enablebanking_key_path or (
+            self.data_dir / "enablebanking_private.pem"
+        )
 
 
 settings = Settings()

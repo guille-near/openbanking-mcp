@@ -14,7 +14,12 @@ def auth() -> None:
     """Autoriza con el proveedor activo y guarda las credenciales cifradas."""
     from finmcp.config import settings
 
-    if settings.provider.lower() == "gocardless":
+    prov = settings.provider.lower()
+    if prov == "enablebanking":
+        from finmcp.providers.enablebanking.auth import run_link_flow
+
+        run_link_flow()
+    elif prov == "gocardless":
         from finmcp.providers.gocardless.auth import run_link_flow
 
         run_link_flow()
@@ -27,11 +32,25 @@ def auth() -> None:
 @app.command()
 def institutions(
     country: str = typer.Option(
-        None, help="Código país ISO-3166 (p.ej. es). Por defecto, GOCARDLESS_COUNTRY."
+        None, help="Código país ISO-3166 (p.ej. es). Por defecto, el del proveedor."
     ),
 ) -> None:
-    """Lista las entidades de GoCardless (para fijar GOCARDLESS_INSTITUTION_ID)."""
+    """Lista las entidades del proveedor activo (para fijar el banco en .env)."""
     from finmcp.config import settings
+
+    prov = settings.provider.lower()
+    if prov == "enablebanking":
+        from finmcp.providers.enablebanking.auth import list_aspsps
+
+        code = country or settings.enablebanking_country
+        rows = list_aspsps(code)
+        if not rows:
+            typer.echo(f"Sin entidades para el país '{code}'.")
+            raise typer.Exit()
+        for a in rows:
+            typer.echo(f"{a.get('name', '')}  ·  {a.get('country', '')}")
+        return
+
     from finmcp.providers.gocardless.auth import list_institutions
 
     code = country or settings.gocardless_country
