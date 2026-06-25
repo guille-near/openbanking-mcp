@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "caixa-mcp"
+version = "0.1.0"
+description = "Servidor MCP de finanzas personales (solo lectura) sobre TrueLayer Data API / PSD2"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "sqlalchemy>=2.0",
+  "cryptography>=42.0",
+  "typer>=0.12",
+  "mcp>=1.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+finmcp = "finmcp.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/finmcp"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
