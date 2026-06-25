@@ -50,7 +50,7 @@ def auth_headers() -> dict:
 def list_aspsps(country: str, psu_type: str = "personal") -> list[dict]:
     r = httpx.get(
         f"{settings.enablebanking_base}/aspsps",
-        params={"country": country, "psu_type": psu_type},
+        params={"country": country.upper(), "psu_type": psu_type},
         headers=auth_headers(),
         timeout=30,
     )

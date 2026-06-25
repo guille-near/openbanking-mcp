@@ -24,7 +24,9 @@ class Settings(BaseSettings):
 
     # --- Proveedor Open Banking activo ---
     provider: str = Field(
-        "truelayer", description='"truelayer" | "gocardless" | "enablebanking"'
+        "truelayer",
+        validation_alias="FINMCP_PROVIDER",
+        description='"truelayer" | "gocardless" | "enablebanking"',
     )
 
     # --- TrueLayer ---
