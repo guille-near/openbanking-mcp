@@ -32,6 +32,31 @@ Tu banco (PSD2)
 El servidor MCP **lee de SQLite, nunca llama al banco en caliente**. La sincronización
 es un proceso aparte (`finmcp sync`, manual o por cron).
 
+## Crea tu app de TrueLayer (2 minutos, gratis)
+
+Cada usuario usa **sus propias credenciales** de TrueLayer (así nadie depende de un
+servidor central ni comparte secretos). Conseguirlas en sandbox es gratis y rápido:
+
+1. Entra en **[console.truelayer.com](https://console.truelayer.com)** y crea una cuenta.
+2. Crea una aplicación (botón *Create application* / *New app*). Empiezas en **Sandbox**.
+3. En la app, abre **Settings / Keys** y copia:
+   - **Client ID** → a `TRUELAYER_CLIENT_ID` en tu `.env`.
+   - **Client secret** → a `TRUELAYER_CLIENT_SECRET` en tu `.env`.
+4. En **Redirect URIs**, añade exactamente:
+   ```
+   http://localhost:3000/callback
+   ```
+   (debe coincidir con `TRUELAYER_REDIRECT_URI` / `FINMCP_CALLBACK_PORT` del `.env`).
+5. Deja `TRUELAYER_ENV=sandbox` y `TRUELAYER_PROVIDERS=uk-cs-mock` para probar contra el
+   **Mock Bank** (datos ficticios, sin tocar dinero real).
+
+> 🔒 **No compartas tu `Client secret` ni lo subas al repo** (ya está en `.gitignore` vía
+> `.env`). Identifica a *tu* aplicación ante TrueLayer y todo el uso recae sobre tu cuenta.
+
+> **¿Datos de tu banco real?** Necesitas que TrueLayer apruebe tu app para **`live`**
+> (`TRUELAYER_ENV=live`) y elegir el provider de tu banco (ver [Bancos soportados](#bancos-soportados)).
+> No es inmediato; para probar el proyecto, sandbox basta.
+
 ## Puesta en marcha
 
 ```bash
