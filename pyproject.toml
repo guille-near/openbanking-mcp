@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "caixa-mcp"
+name = "mis-perritas-mcp"
 version = "0.1.0"
 description = "Servidor MCP de finanzas personales (solo lectura) sobre TrueLayer Data API / PSD2"
 readme = "README.md"
@@ -29,3 +29,4 @@ packages = ["src/finmcp"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+testpaths = ["tests"]
