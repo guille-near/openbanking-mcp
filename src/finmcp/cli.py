@@ -159,13 +159,18 @@ def import_csv(
     from finmcp.analytics.categorization import apply_rules
     from finmcp.db import models
     from finmcp.db.session import SessionLocal, init_db
-    from finmcp.importers.csv_import import import_transactions, parse_rows
+    from finmcp.importers.csv_import import (
+        import_transactions,
+        parse_rows,
+        parse_xls,
+        parse_xlsx,
+    )
 
     ext = Path(path).suffix.lower()
     if ext in (".xlsx", ".xlsm"):
-        from finmcp.importers.csv_import import parse_xlsx
-
         rows = parse_xlsx(path)
+    elif ext == ".xls":
+        rows = parse_xls(path)
     else:
         raw = Path(path).read_bytes()
         text = ""
@@ -180,32 +185,38 @@ def import_csv(
         typer.echo("No se encontraron movimientos en el fichero.")
         raise typer.Exit()
 
+    # El fichero puede traer varias cuentas (columna "Número de cuenta"); en ese
+    # caso cada fila se mapea sola. --iban/--account-id solo se usan como destino
+    # por defecto para ficheros de una sola cuenta sin esa columna.
+    has_account_col = any(r.get("account") for r in rows)
+
     init_db()
     with SessionLocal() as s:
+        default_acc = None
         if account_id:
-            acc = s.get(models.Account, account_id)
+            default_acc = s.get(models.Account, account_id)
         elif iban:
-            acc = (
+            default_acc = (
                 s.query(models.Account)
                 .filter(models.Account.iban == iban)
                 .first()
             )
-        else:
+        elif not has_account_col:
             accs = s.query(models.Account).all()
-            acc = accs[0] if len(accs) == 1 else None
+            default_acc = accs[0] if len(accs) == 1 else None
 
-        if acc is None:
+        if default_acc is None and not has_account_col:
             raise typer.BadParameter(
                 "Indica la cuenta destino con --iban o --account-id "
                 "(hay varias cuentas). Lístalas con `finmcp accounts`."
             )
 
-        added, skipped = import_transactions(s, acc, rows)
+        added, skipped = import_transactions(s, rows, account=default_acc)
         changed = apply_rules(s)
 
     typer.echo(
-        f"Importadas {added} · saltadas (duplicadas) {skipped} · "
-        f"recategorizadas {changed}  →  cuenta {acc.iban or acc.id}"
+        f"Importadas {added} · saltadas (duplicadas/sin cuenta) {skipped} · "
+        f"recategorizadas {changed}"
     )
 
 

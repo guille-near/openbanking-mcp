@@ -181,8 +181,10 @@ exporta tus movimientos desde la web de tu banco (**Excel `.xlsx` o CSV/TXT**) e
 finmcp import-csv movimientos.xlsx --iban ES58...   # o un .csv / .txt
 ```
 
-Acepta Excel y texto; detecta el delimitador, las cabeceras y el formato
-español de fecha/importe.
+Acepta **Excel (`.xlsx` y `.xls`) y texto (CSV/TXT)**; detecta el delimitador, las
+cabeceras y el formato español de fecha/importe. Soporta importe en una columna con
+signo o en columnas **Ingreso/Gasto** separadas (formato CaixaBank), y si el fichero
+trae varias cuentas (columna *Número de cuenta*) **mapea cada movimiento a su cuenta**.
 **Deduplica** por (cuenta, día, importe, tipo), así que es seguro reimportar o
 solapar con lo que ya bajó la API. Las reglas de categorización se aplican solas.
 

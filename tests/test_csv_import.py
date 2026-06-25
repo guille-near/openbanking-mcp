@@ -83,7 +83,7 @@ def test_import_transactions_inserts_and_dedups(session):
     acc = session.get(Account, "acc1")
     rows = parse_rows(SAMPLE)
 
-    added, skipped = import_transactions(session, acc, rows)
+    added, skipped = import_transactions(session, rows, account=acc)
     assert added == 3 and skipped == 0
 
     txs = session.query(Transaction).all()
@@ -95,9 +95,56 @@ def test_import_transactions_inserts_and_dedups(session):
     assert nom.type == "credit" and nom.amount == 1800.0
 
     # Reimportar no duplica
-    added2, skipped2 = import_transactions(session, acc, rows)
+    added2, skipped2 = import_transactions(session, rows, account=acc)
     assert added2 == 0 and skipped2 == 3
     assert session.query(Transaction).count() == 3
+
+
+# Formato real de CaixaBank: Ingreso/Gasto separados, nº de cuenta y "Concepto
+# complementario 1" con el comercio. (Tabla cruda como la que produce parse_xls.)
+CAIXA_TABLE = [
+    [""] * 13,
+    ["", "MOVIMIENTOS DESDE : 01/01/2025"] + [""] * 11,
+    [""] * 13,
+    ["", "Número de cuenta", "Oficina", "Divisa", "F. Operación", "F. Valor",
+     "Ingreso (+)", "Gasto (-)", "Saldo (+)", "Saldo (-)", "Concepto común",
+     "Concepto propio", "Concepto complementario 1"],
+    ["", "2100 8931 10 1300320553", "9736", "EUR", "25/06/2026", "25/06/2026",
+     "", "0.75", "122.46", "", "12", "040", "EL CORTE INGLES T"],
+    ["", "2100 8931 10 1300320553", "9736", "EUR", "09/06/2026", "09/06/2026",
+     "50.0", "", "244.69", "", "02", "040", "PRIO E MOBILITY"],
+    ["", "2100 8931 11 1300405400", "9736", "EUR", "01/06/2026", "01/06/2026",
+     "", "34.0", "100.00", "", "12", "040", "MERCADONA STA.MAR"],
+]
+
+
+def test_rows_from_table_caixabank_ingreso_gasto():
+    from finmcp.importers.csv_import import _rows_from_table
+
+    rows = _rows_from_table(CAIXA_TABLE)
+    assert len(rows) == 3
+    assert rows[0]["amount"] == -0.75  # gasto -> negativo
+    assert rows[0]["description"] == "EL CORTE INGLES T"
+    assert "1300320553" in rows[0]["account"]
+    assert rows[1]["amount"] == 50.0  # ingreso -> positivo
+
+
+def test_import_multi_account_maps_by_number(Session):
+    from finmcp.db.models import Account, Transaction
+    from finmcp.importers.csv_import import _rows_from_table, import_transactions
+
+    with Session() as s:
+        s.add(Account(id="a58", name="C1", type="CACC", currency="EUR",
+                      iban="ES5821008931101300320553"))
+        s.add(Account(id="a73", name="C2", type="CACC", currency="EUR",
+                      iban="ES7321008931111300405400"))
+        s.commit()
+
+        rows = _rows_from_table(CAIXA_TABLE)
+        added, skipped = import_transactions(s, rows)  # sin cuenta por defecto
+        assert added == 3
+        assert s.query(Transaction).filter_by(account_id="a58").count() == 2
+        assert s.query(Transaction).filter_by(account_id="a73").count() == 1
 
 
 def test_import_dedups_against_existing_api_tx(session, make_tx):
@@ -115,7 +162,7 @@ def test_import_dedups_against_existing_api_tx(session, make_tx):
     acc = session.get(Account, "acc1")
     rows = parse_rows(SAMPLE)
 
-    added, skipped = import_transactions(session, acc, rows)
+    added, skipped = import_transactions(session, rows, account=acc)
     # La de Mercadona (28/03, -23,45) se salta por dedup; entran las otras 2
     assert added == 2 and skipped == 1
     assert session.query(Transaction).count() == 3

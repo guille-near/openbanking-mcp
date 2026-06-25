@@ -16,6 +16,7 @@ dependencies = [
   "cryptography>=42.0",
   "pyjwt>=2.8",
   "openpyxl>=3.1",
+  "xlrd>=2.0",
   "typer>=0.12",
   "mcp>=1.2",
 ]
