@@ -52,6 +52,31 @@ def test_parse_rows_comma_delimiter():
     assert len(rows) == 1 and rows[0]["amount"] == -10.0
 
 
+def test_parse_xlsx(tmp_path):
+    from datetime import datetime
+
+    from openpyxl import Workbook
+
+    from finmcp.importers.csv_import import parse_xlsx
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Movimientos de la cuenta ES58..."])  # preámbulo
+    ws.append([])
+    ws.append(["Fecha", "Concepto", "Importe", "Saldo"])
+    ws.append([datetime(2026, 3, 28), "COMPRA MERCADONA", -23.45, 1000.0])
+    ws.append([datetime(2026, 3, 27), "NOMINA EMPRESA SL", 1800.0, 1023.45])
+    p = tmp_path / "mov.xlsx"
+    wb.save(p)
+
+    rows = parse_xlsx(str(p))
+    assert len(rows) == 2
+    assert rows[0]["amount"] == -23.45
+    assert rows[0]["description"] == "COMPRA MERCADONA"
+    assert rows[0]["date"].day == 28
+    assert rows[1]["amount"] == 1800.0
+
+
 def test_import_transactions_inserts_and_dedups(session):
     from finmcp.db.models import Account, Transaction
 

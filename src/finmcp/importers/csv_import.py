@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -91,7 +91,34 @@ def parse_rows(text: str, delimiter: str | None = None) -> list[dict]:
         delimiter = ";" if sample.count(";") >= sample.count(",") else ","
 
     table = [r for r in csv.reader(io.StringIO(text), delimiter=delimiter)]
+    return _rows_from_table(table)
 
+
+def _cell_to_str(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    return str(value)
+
+
+def parse_xlsx(path: str) -> list[dict]:
+    """Extrae filas {date, amount, description} de un Excel (.xlsx)."""
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path, read_only=True, data_only=True)
+    ws = wb.active
+    table = [
+        [_cell_to_str(c) for c in row]
+        for row in ws.iter_rows(values_only=True)
+    ]
+    return _rows_from_table(table)
+
+
+def _rows_from_table(table: list[list[str]]) -> list[dict]:
+    """Localiza la cabecera (saltando preámbulos) y extrae las filas válidas."""
     header_idx = None
     for i, row in enumerate(table):
         if (
@@ -102,8 +129,8 @@ def parse_rows(text: str, delimiter: str | None = None) -> list[dict]:
             break
     if header_idx is None:
         raise ValueError(
-            "No encuentro las cabeceras (fecha/importe) en el CSV. "
-            "Revisa el delimitador o pásalo con --delimiter."
+            "No encuentro las cabeceras (fecha/importe) en el fichero. "
+            "Revisa el formato o el delimitador (--delimiter)."
         )
 
     headers = table[header_idx]

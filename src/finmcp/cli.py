@@ -161,15 +161,21 @@ def import_csv(
     from finmcp.db.session import SessionLocal, init_db
     from finmcp.importers.csv_import import import_transactions, parse_rows
 
-    raw = Path(path).read_bytes()
-    for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
-        try:
-            text = raw.decode(enc)
-            break
-        except UnicodeDecodeError:
-            continue
+    ext = Path(path).suffix.lower()
+    if ext in (".xlsx", ".xlsm"):
+        from finmcp.importers.csv_import import parse_xlsx
 
-    rows = parse_rows(text, delimiter)
+        rows = parse_xlsx(path)
+    else:
+        raw = Path(path).read_bytes()
+        text = ""
+        for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+            try:
+                text = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        rows = parse_rows(text, delimiter)
     if not rows:
         typer.echo("No se encontraron movimientos en el fichero.")
         raise typer.Exit()

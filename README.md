@@ -175,13 +175,14 @@ Las reglas se reaplican automáticamente al final de cada `finmcp sync`.
 ## Importar histórico antiguo (CSV)
 
 Las APIs PSD2 solo dan ~90 días de histórico. Para movimientos más antiguos,
-exporta tus movimientos desde la web de tu banco (CSV/Excel) e impórtalos:
+exporta tus movimientos desde la web de tu banco (**Excel `.xlsx` o CSV/TXT**) e impórtalos:
 
 ```bash
-finmcp import-csv movimientos.csv --iban ES58...
+finmcp import-csv movimientos.xlsx --iban ES58...   # o un .csv / .txt
 ```
 
-Detecta el delimitador, las cabeceras y el formato español de fecha/importe.
+Acepta Excel y texto; detecta el delimitador, las cabeceras y el formato
+español de fecha/importe.
 **Deduplica** por (cuenta, día, importe, tipo), así que es seguro reimportar o
 solapar con lo que ya bajó la API. Las reglas de categorización se aplican solas.
 
