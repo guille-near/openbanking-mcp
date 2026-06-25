@@ -10,7 +10,7 @@ from finmcp.db import models, queries
 from finmcp.db.session import SessionLocal, init_db
 from finmcp.util import parse_date
 
-mcp = FastMCP("Mis_Perritas-mcp")
+mcp = FastMCP("openbanking-mcp")
 
 
 def _tx_dict(t: models.Transaction) -> dict:

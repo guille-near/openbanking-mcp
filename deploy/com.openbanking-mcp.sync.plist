@@ -3,13 +3,13 @@
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
   Plantilla de LaunchAgent (macOS). Sustituye __PROJECT_DIR__ por la ruta
-  absoluta donde clonaste el repo, por ejemplo /Users/tu-usuario/mis-perritas-mcp
-  Tip: sed -i '' "s|__PROJECT_DIR__|$PWD|g" deploy/com.misperritas-mcp.sync.plist
+  absoluta donde clonaste el repo, por ejemplo /Users/tu-usuario/openbanking-mcp
+  Tip: sed -i '' "s|__PROJECT_DIR__|$PWD|g" deploy/com.openbanking-mcp.sync.plist
 -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.misperritas-mcp.sync</string>
+    <string>com.openbanking-mcp.sync</string>
 
     <!-- Ejecuta `finmcp sync` desde el venv del proyecto -->
     <key>ProgramArguments</key>

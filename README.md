@@ -1,4 +1,4 @@
-# Mis_Perritas-mcp
+# openbanking-mcp
 
 Servidor MCP de **finanzas personales de solo lectura** sobre la **TrueLayer Data API** (PSD2).
 Consulta cuentas, saldos y movimientos de tus bancos y genera analítica: gasto por
@@ -36,7 +36,7 @@ es un proceso aparte (`finmcp sync`, manual o por cron).
 
 ```bash
 # 1. Clona y entra
-git clone <tu-fork-o-este-repo> mis-perritas-mcp && cd mis-perritas-mcp
+git clone <tu-fork-o-este-repo> openbanking-mcp && cd openbanking-mcp
 
 # 2. Entorno
 python -m venv .venv && source .venv/bin/activate
@@ -97,8 +97,8 @@ En `claude_desktop_config.json` (usa la **ruta absoluta** a tu clon del repo):
 ```json
 {
   "mcpServers": {
-    "mis-perritas": {
-      "command": "/RUTA/ABSOLUTA/A/mis-perritas-mcp/.venv/bin/finmcp",
+    "openbanking": {
+      "command": "/RUTA/ABSOLUTA/A/openbanking-mcp/.venv/bin/finmcp",
       "args": ["serve"]
     }
   }
@@ -148,14 +148,14 @@ Las reglas se reaplican automáticamente al final de cada `finmcp sync`.
 
 ```bash
 # Sustituye __PROJECT_DIR__ por la ruta absoluta de tu clon
-sed -i '' "s|__PROJECT_DIR__|$PWD|g" deploy/com.misperritas-mcp.sync.plist
+sed -i '' "s|__PROJECT_DIR__|$PWD|g" deploy/com.openbanking-mcp.sync.plist
 
 # Copia el LaunchAgent y actívalo (sync cada 6 h)
-cp deploy/com.misperritas-mcp.sync.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.misperritas-mcp.sync.plist
+cp deploy/com.openbanking-mcp.sync.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.openbanking-mcp.sync.plist
 
 # Logs en data/sync.log · para parar:
-launchctl unload ~/Library/LaunchAgents/com.misperritas-mcp.sync.plist
+launchctl unload ~/Library/LaunchAgents/com.openbanking-mcp.sync.plist
 ```
 
 ## Notas PSD2
